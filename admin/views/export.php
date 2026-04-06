@@ -108,6 +108,7 @@ $juda_posts = get_posts( [
             <?php foreach ( $juda_posts as $juda_p ) :
                 $juda_product_id   = get_post_meta( $juda_p->ID, '_juda_product_id',   true );
                 $juda_product_slug = get_post_meta( $juda_p->ID, '_juda_product_slug', true );
+                $juda_product_url  = juda_exporter_build_product_url( (string) $juda_product_slug, (string) $juda_product_id );
                 $juda_thumb_id     = get_post_thumbnail_id( $juda_p->ID );
                 $juda_thumb_url    = $juda_thumb_id ? wp_get_attachment_image_url( $juda_thumb_id, [ 40, 40 ] ) : '';
                 $juda_is_synced    = ! empty( $juda_product_id );
@@ -139,8 +140,8 @@ $juda_posts = get_posts( [
                         <span class="je-badge je-badge-synced">
                             <?php esc_html_e( 'Synced', 'juda-b2b-exporter' ); ?>
                         </span>
-                        <?php if ( $juda_product_slug ) : ?>
-                            &nbsp;<a href="<?php echo esc_url( 'https://www.judab2b.com/products/' . $juda_product_slug ); ?>"
+                        <?php if ( $juda_product_url ) : ?>
+                            &nbsp;<a href="<?php echo esc_url( $juda_product_url ); ?>"
                                      target="_blank" rel="noopener">
                                 <?php esc_html_e( 'View on Juda', 'juda-b2b-exporter' ); ?> &nearr;
                             </a>

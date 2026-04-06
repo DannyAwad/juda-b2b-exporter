@@ -3,14 +3,21 @@
  * Juda Exporter — Admin UI
  *
  * Pages (under a top-level "Juda Export" menu):
- *   Dashboard — setup checklist, sync stats, quick actions
- *   Export    — pick posts, run export, view per-post results
- *   Settings  — API URL, API key, Business ID, category map
+ *   Dashboard / Wizard — guided setup + connect
+ *   Export             — pick posts, run export, view per-post results
+ *   Settings           — post types, reconnect / disconnect
  */
 
 defined( 'ABSPATH' ) || exit;
 
 class Juda_Exporter_Admin {
+
+    /**
+     * Admin screen hook suffixes for this plugin's pages.
+     *
+     * @var string[]
+     */
+    private array $screen_hooks = [];
 
     public function __construct() {
         add_action( 'admin_menu',            [ $this, 'register_menu' ] );
@@ -32,7 +39,8 @@ class Juda_Exporter_Admin {
         $state = wp_generate_uuid4();
         set_transient( 'juda_oauth_state_' . $state, 1, 10 * MINUTE_IN_SECONDS );
 
-        $callback = admin_url( 'admin.php?page=juda-exporter-settings' );
+        // Always redirect back to the wizard dashboard (not settings)
+        $callback = admin_url( 'admin.php?page=juda-exporter' );
 
         return add_query_arg( [
             'redirect_uri' => rawurlencode( $callback ),
@@ -70,7 +78,7 @@ class Juda_Exporter_Admin {
         if ( is_wp_error( $response ) ) {
             $msg = esc_html( $response->get_error_message() );
             add_action( 'admin_notices', static function () use ( $msg ) {
-                echo '<div class="notice notice-error"><p><strong>Juda:</strong> Connection failed: ' . $msg . '</p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped
+                echo '<div class="notice notice-error"><p><strong>Juda:</strong> Connection failed: ' . $msg . '</p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
             } );
             return;
         }
@@ -80,16 +88,18 @@ class Juda_Exporter_Admin {
         if ( empty( $body['api_key'] ) || empty( $body['business_id'] ) ) {
             $err = esc_html( $body['error'] ?? 'Unknown error' );
             add_action( 'admin_notices', static function () use ( $err ) {
-                echo '<div class="notice notice-error"><p><strong>Juda:</strong> ' . $err . '</p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped
+                echo '<div class="notice notice-error"><p><strong>Juda:</strong> ' . $err . '</p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
             } );
             return;
         }
 
+        // Save directly — NOT via the settings form group to prevent the form
+        // from overwriting them with empty values on "Save settings".
         update_option( 'juda_exporter_api_key',     sanitize_text_field( $body['api_key'] ) );
         update_option( 'juda_exporter_business_id', sanitize_text_field( $body['business_id'] ) );
 
-        // Redirect to settings page to remove juda_code/state from URL
-        wp_safe_redirect( admin_url( 'admin.php?page=juda-exporter-settings&juda_connected=1' ) );
+        // Redirect to wizard dashboard (step 2 — category mapping)
+        wp_safe_redirect( admin_url( 'admin.php?page=juda-exporter&juda_connected=1' ) );
         exit;
     }
 
@@ -105,7 +115,7 @@ class Juda_Exporter_Admin {
         }
         delete_option( 'juda_exporter_api_key' );
         delete_option( 'juda_exporter_business_id' );
-        wp_safe_redirect( admin_url( 'admin.php?page=juda-exporter-settings&juda_disconnected=1' ) );
+        wp_safe_redirect( admin_url( 'admin.php?page=juda-exporter&juda_disconnected=1' ) );
         exit;
     }
 
@@ -116,8 +126,7 @@ class Juda_Exporter_Admin {
             return;
         }
         delete_transient( 'juda_exporter_do_activation_redirect' );
-        // Don't redirect during bulk-activation
-        if ( isset( $_GET['activate-multi'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Standard WordPress bulk-activation flag, not user input
+        if ( isset( $_GET['activate-multi'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
             return;
         }
         wp_safe_redirect( admin_url( 'admin.php?page=juda-exporter' ) );
@@ -127,7 +136,7 @@ class Juda_Exporter_Admin {
     // ─── Menu ─────────────────────────────────────────────────────────────────
 
     public function register_menu(): void {
-        add_menu_page(
+        $this->screen_hooks[] = add_menu_page(
             __( 'Juda B2B Export', 'juda-b2b-exporter' ),
             __( 'Juda Export', 'juda-b2b-exporter' ),
             'manage_options',
@@ -137,25 +146,25 @@ class Juda_Exporter_Admin {
             56
         );
 
-        add_submenu_page(
+        $this->screen_hooks[] = add_submenu_page(
             'juda-exporter',
-            __( 'Dashboard', 'juda-b2b-exporter' ),
-            __( 'Dashboard', 'juda-b2b-exporter' ),
+            __( 'Setup Wizard', 'juda-b2b-exporter' ),
+            __( 'Setup Wizard', 'juda-b2b-exporter' ),
             'manage_options',
             'juda-exporter',
             [ $this, 'page_dashboard' ]
         );
 
-        add_submenu_page(
+        $this->screen_hooks[] = add_submenu_page(
             'juda-exporter',
             __( 'Export Products', 'juda-b2b-exporter' ),
-            __( 'Export', 'juda-b2b-exporter' ),
+            __( 'Export Products', 'juda-b2b-exporter' ),
             'manage_options',
             'juda-exporter-export',
             [ $this, 'page_export' ]
         );
 
-        add_submenu_page(
+        $this->screen_hooks[] = add_submenu_page(
             'juda-exporter',
             __( 'Settings', 'juda-b2b-exporter' ),
             __( 'Settings', 'juda-b2b-exporter' ),
@@ -168,10 +177,11 @@ class Juda_Exporter_Admin {
     // ─── Settings ─────────────────────────────────────────────────────────────
 
     public function register_settings(): void {
-        register_setting( 'juda_exporter_settings', 'juda_exporter_api_key',             [ 'sanitize_callback' => 'sanitize_text_field' ] );
-        register_setting( 'juda_exporter_settings', 'juda_exporter_business_id',         [ 'sanitize_callback' => 'sanitize_text_field' ] );
-        register_setting( 'juda_exporter_settings', 'juda_exporter_default_category_id', [ 'sanitize_callback' => 'sanitize_text_field' ] );
-        register_setting( 'juda_exporter_settings', 'juda_exporter_post_types',          [ 'sanitize_callback' => [ $this, 'sanitize_post_types' ] ] );
+        // IMPORTANT: api_key, business_id, default_category_id, and category_map
+        // are managed directly via update_option() (OAuth callback + AJAX).
+        // Do NOT register them here — WordPress's options.php would overwrite them
+        // with empty values whenever the settings form is submitted.
+        register_setting( 'juda_exporter_settings', 'juda_exporter_post_types', [ 'sanitize_callback' => [ $this, 'sanitize_post_types' ] ] );
     }
 
     public function sanitize_post_types( mixed $value ): string {
@@ -186,12 +196,7 @@ class Juda_Exporter_Admin {
     // ─── Assets ───────────────────────────────────────────────────────────────
 
     public function enqueue_assets( string $hook ): void {
-        $pages = [
-            'toplevel_page_juda-exporter',
-            'juda-export_page_juda-exporter-export',
-            'juda-export_page_juda-exporter-settings',
-        ];
-        if ( ! in_array( $hook, $pages, true ) ) {
+        if ( ! in_array( $hook, $this->screen_hooks, true ) ) {
             return;
         }
 
@@ -213,13 +218,13 @@ class Juda_Exporter_Admin {
             'nonce'    => wp_create_nonce( 'juda_export_nonce' ),
             'juda_url' => 'https://www.judab2b.com',
             'i18n'     => [
-                'exporting'    => __( 'Exporting…',            'juda-b2b-exporter' ),
-                'done'         => __( 'Export complete!',       'juda-b2b-exporter' ),
-                'error'        => __( 'Export failed.',         'juda-b2b-exporter' ),
-                'test_ok'      => __( 'Connection successful.', 'juda-b2b-exporter' ),
-                'test_fail'    => __( 'Connection failed: ',    'juda-b2b-exporter' ),
-                'saving_map'   => __( 'Saving…',                'juda-b2b-exporter' ),
-                'map_saved'    => __( 'Category map saved.',    'juda-b2b-exporter' ),
+                'exporting'       => __( 'Exporting…',             'juda-b2b-exporter' ),
+                'done'            => __( 'Export complete!',        'juda-b2b-exporter' ),
+                'error'           => __( 'Export failed.',          'juda-b2b-exporter' ),
+                'test_ok'         => __( 'Connection successful.',  'juda-b2b-exporter' ),
+                'test_fail'       => __( 'Connection failed: ',     'juda-b2b-exporter' ),
+                'saving_map'      => __( 'Saving…',                 'juda-b2b-exporter' ),
+                'map_saved'       => __( 'Category map saved.',     'juda-b2b-exporter' ),
                 /* translators: %d = number of products being exported */
                 'confirm_all'     => __( '%d products will be exported to Juda. Continue?', 'juda-b2b-exporter' ),
                 /* translators: %d = number of unsynced products remaining */
@@ -231,6 +236,7 @@ class Juda_Exporter_Admin {
     // ─── Pages ────────────────────────────────────────────────────────────────
 
     public function page_dashboard(): void {
+        $juda_connect_url = $this->build_connect_url();
         require_once JUDA_EXPORTER_DIR . 'admin/views/dashboard.php';
     }
 
@@ -271,11 +277,11 @@ class Juda_Exporter_Admin {
                 ];
             } else {
                 $results[] = [
-                    'post_id'    => $post_id,
-                    'success'    => true,
-                    'created'    => $result['created'] ?? false,
-                    'juda_slug'  => $result['slug']      ?? '',
-                    'juda_id'    => $result['productId'] ?? '',
+                    'post_id'   => $post_id,
+                    'success'   => true,
+                    'created'   => $result['created']    ?? false,
+                    'juda_slug' => $result['slug']        ?? '',
+                    'juda_id'   => $result['productId']   ?? '',
                 ];
             }
         }
@@ -312,7 +318,15 @@ class Juda_Exporter_Admin {
             wp_send_json_error( null, 403 );
         }
 
-        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON structure is sanitized after decoding
+        // Save the default Juda category (selected from a dropdown, not entered manually)
+        if ( isset( $_POST['default_category_id'] ) ) {
+            update_option(
+                'juda_exporter_default_category_id',
+                sanitize_text_field( wp_unslash( $_POST['default_category_id'] ) )
+            );
+        }
+
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
         $raw_map = isset( $_POST['category_map'] ) ? wp_unslash( (string) $_POST['category_map'] ) : '';
         $decoded = json_decode( $raw_map, true );
 

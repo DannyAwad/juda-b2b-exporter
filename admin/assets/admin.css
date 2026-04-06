@@ -1,6 +1,328 @@
 /* Juda B2B Exporter — admin styles */
 
-/* ─── Status badges ─────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   WIZARD CARD
+════════════════════════════════════════════════════════════════════════════ */
+
+.jw-card {
+    max-width: 680px;
+    margin-top: 20px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.07);
+    overflow: hidden;
+}
+
+.jw-panel {
+    display: none;
+}
+
+.jw-panel.is-active {
+    display: block;
+}
+
+/* ── Progress header ─────────────────────────────────────────────────────── */
+
+.jw-progress-header {
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.jw-progress-track {
+    height: 6px;
+    background: #f0f0f1;
+}
+
+.jw-progress-fill {
+    height: 100%;
+    background: #2271b1;
+    border-radius: 0 3px 3px 0;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 25%; /* set by JS */
+}
+
+.jw-progress-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 32px;
+    font-size: 12px;
+    color: #646970;
+    letter-spacing: 0.01em;
+}
+
+.jw-progress-step {
+    font-weight: 700;
+    color: #2271b1;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+}
+
+.jw-progress-sep {
+    color: #c3c4c7;
+}
+
+.jw-progress-title {
+    color: #3c434a;
+    font-weight: 500;
+}
+
+/* ── Panel body ──────────────────────────────────────────────────────────── */
+
+.jw-panel-body {
+    padding: 36px 40px 28px;
+}
+
+.jw-heading {
+    margin: 0 0 10px;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #1d2327;
+}
+
+.jw-lead {
+    font-size: 14px;
+    color: #50575e;
+    margin: 0 0 28px;
+    line-height: 1.6;
+}
+
+/* ── Panel footer (nav bar) ──────────────────────────────────────────────── */
+
+.jw-panel-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 40px;
+    background: #f6f7f7;
+    border-top: 1px solid #dcdcde;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STEP 1 — Welcome
+════════════════════════════════════════════════════════════════════════════ */
+
+.jw-welcome-icon {
+    font-size: 52px;
+    line-height: 1;
+    margin-bottom: 20px;
+    display: block;
+}
+
+.jw-steps-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin-top: 4px;
+}
+
+.jw-preview-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.jw-preview-num {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #eef3fa;
+    border: 2px solid #c8d8f0;
+    color: #2271b1;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
+
+.jw-preview-body strong {
+    display: block;
+    font-size: 14px;
+    color: #1d2327;
+    margin-bottom: 3px;
+}
+
+.jw-preview-body p {
+    font-size: 13px;
+    color: #646970;
+    margin: 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STEP 2 — Connect
+════════════════════════════════════════════════════════════════════════════ */
+
+.jw-success-box {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.jw-success-icon {
+    font-size: 26px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.jw-success-text strong {
+    display: block;
+    font-size: 15px;
+    color: #065f46;
+    margin-bottom: 2px;
+}
+
+.jw-success-text p {
+    margin: 0;
+    font-size: 13px;
+    color: #3c434a;
+}
+
+.jw-danger-btn {
+    color: #b32d2e !important;
+    border-color: #b32d2e !important;
+}
+
+.jw-danger-btn:hover {
+    background: #fcf0f1 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STEP 3 — Categories
+════════════════════════════════════════════════════════════════════════════ */
+
+.jw-action-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.jw-status-text {
+    font-size: 13px;
+}
+
+.jw-field-group {
+    margin-top: 24px;
+    padding: 20px;
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+}
+
+.jw-field-label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: #1d2327;
+}
+
+.jw-select {
+    min-width: 240px;
+    max-width: 100%;
+}
+
+.jw-cat-table-wrap {
+    margin-top: 24px;
+    max-height: 340px;
+    overflow-y: auto;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+}
+
+.jw-cat-table-wrap .widefat {
+    margin: 0;
+    border: none;
+}
+
+.jw-info-box {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #f0f6ff;
+    border: 1px solid #c8d8f0;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #1e3a5f;
+}
+
+.jw-muted {
+    color: #8c8f94;
+    font-size: 12px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STEP 4 — Done
+════════════════════════════════════════════════════════════════════════════ */
+
+.jw-done-body {
+    text-align: center;
+}
+
+.jw-done-icon {
+    font-size: 56px;
+    line-height: 1;
+    margin-bottom: 16px;
+    display: block;
+}
+
+.jw-stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin: 28px 0;
+    flex-wrap: wrap;
+}
+
+.jw-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 18px 28px;
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    min-width: 120px;
+}
+
+.jw-stat-num {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+    color: #1d2327;
+}
+
+.jw-stat-lbl {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #646970;
+    white-space: nowrap;
+}
+
+.jw-stat--synced .jw-stat-num { color: #00a32a; }
+.jw-stat--pending .jw-stat-num { color: #b45309; }
+
+.jw-done-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STATUS BADGES  (used on Export page)
+════════════════════════════════════════════════════════════════════════════ */
 
 .je-badge {
     display: inline-block;
@@ -10,142 +332,13 @@
     font-weight: 600;
 }
 
-.je-badge-synced {
-    background: #d1fae5;
-    color: #065f46;
-}
+.je-badge-synced  { background: #d1fae5; color: #065f46; }
+.je-badge-pending { background: #fef3c7; color: #92400e; }
+.je-badge-error   { background: #fee2e2; color: #991b1b; }
 
-.je-badge-pending {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.je-badge-error {
-    background: #fee2e2;
-    color: #991b1b;
-}
-
-/* ─── Dashboard — stats row ─────────────────────────────────────────────── */
-
-.je-stats-row {
-    display: flex;
-    gap: 16px;
-    margin: 20px 0 24px;
-    flex-wrap: wrap;
-}
-
-.je-stat-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px 28px;
-    background: #fff;
-    border: 1px solid #dcdcde;
-    border-radius: 4px;
-    min-width: 140px;
-    text-align: center;
-}
-
-.je-stat-num {
-    font-size: 36px;
-    font-weight: 700;
-    line-height: 1;
-    color: #1d2327;
-}
-
-.je-stat-label {
-    margin-top: 6px;
-    font-size: 13px;
-    color: #646970;
-}
-
-.je-stat-synced-card .je-stat-num { color: #0a7227; }
-.je-stat-pending-card .je-stat-num { color: #92400e; }
-
-/* ─── Dashboard — setup checklist card ─────────────────────────────────── */
-
-.je-card {
-    background: #fff;
-    border: 1px solid #dcdcde;
-    border-radius: 4px;
-    padding: 20px 24px;
-    margin-bottom: 20px;
-    max-width: 680px;
-}
-
-.je-setup-card h2 {
-    margin-top: 0;
-}
-
-.je-steps {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    margin-top: 16px;
-}
-
-.je-step {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-}
-
-.je-step-icon {
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    line-height: 28px;
-    text-align: center;
-    border-radius: 50%;
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.je-step-done .je-step-icon {
-    background: #d1fae5;
-    color: #065f46;
-}
-
-.je-step-todo .je-step-icon {
-    background: #f0f0f1;
-    color: #50575e;
-}
-
-.je-step-body {
-    flex: 1;
-}
-
-.je-step-title {
-    display: block;
-    font-size: 14px;
-    line-height: 28px; /* vertically align with icon */
-}
-
-.je-step-done .je-step-title {
-    color: #646970;
-    text-decoration: line-through;
-}
-
-.je-step-desc {
-    margin: 4px 0 8px;
-    color: #646970;
-    font-size: 13px;
-}
-
-/* ─── Dashboard — quick actions ─────────────────────────────────────────── */
-
-.je-quick-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 24px;
-}
-
-.je-notice-inline {
-    max-width: 680px;
-}
-
-/* ─── Export page — controls bar ────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════════
+   EXPORT PAGE
+════════════════════════════════════════════════════════════════════════════ */
 
 .je-controls {
     display: flex;
@@ -172,9 +365,7 @@
     line-height: 1.4;
 }
 
-.je-filter-tab:hover {
-    background: #dcdcde;
-}
+.je-filter-tab:hover  { background: #dcdcde; }
 
 .je-filter-tab.active {
     background: #2271b1;
@@ -182,15 +373,8 @@
     color: #fff;
 }
 
-.je-search-wrap input[type="search"] {
-    width: 220px;
-}
-
-.je-select-bar {
-    margin-bottom: 8px;
-}
-
-/* ─── Export page — actions row ─────────────────────────────────────────── */
+.je-search-wrap input[type="search"] { width: 220px; }
+.je-select-bar { margin-bottom: 8px; }
 
 .je-export-actions {
     display: flex;
@@ -199,8 +383,6 @@
     flex-wrap: wrap;
     margin-top: 16px;
 }
-
-/* ─── Product table — thumbnail ─────────────────────────────────────────── */
 
 .je-product-cell {
     display: flex;

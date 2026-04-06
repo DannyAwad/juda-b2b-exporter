@@ -4,7 +4,188 @@
 
     var BATCH_SIZE = 10; // products per AJAX call
 
-    // ─── Filter tabs ──────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WIZARD — step navigation
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    var currentStep  = 1;
+    var TOTAL_STEPS  = 4;
+    var STEP_TITLES  = {
+        1: 'Welcome',
+        2: 'Connect your account',
+        3: 'Map categories',
+        4: 'All done!',
+    };
+
+    function goToStep( n ) {
+        n = Math.min( TOTAL_STEPS, Math.max( 1, parseInt( n, 10 ) || 1 ) );
+        currentStep = n;
+
+        // Show / hide panels
+        $( '.jw-panel' ).removeClass( 'is-active' ).hide();
+        $( '.jw-panel[data-step="' + n + '"]' ).addClass( 'is-active' ).show();
+
+        // Progress bar width
+        var pct = Math.round( ( n / TOTAL_STEPS ) * 100 );
+        $( '#jw-progress-fill' ).css( 'width', pct + '%' );
+        $( '#jw-progress-bar' ).attr( 'aria-valuenow', pct );
+
+        // Progress meta text
+        $( '#jw-progress-step' ).text( 'Step ' + n + ' of ' + TOTAL_STEPS );
+        $( '#jw-progress-title' ).text( STEP_TITLES[ n ] || '' );
+
+        // Scroll wizard into view smoothly
+        var $wiz = $( '#juda-wizard' );
+        if ( $wiz.length ) {
+            $( 'html, body' ).animate( { scrollTop: Math.max( 0, $wiz.offset().top - 32 ) }, 150 );
+        }
+    }
+
+    // Init on page load
+    if ( typeof window.judaWizardInitialStep !== 'undefined' ) {
+        goToStep( parseInt( window.judaWizardInitialStep, 10 ) || 1 );
+    }
+
+    // Generic "go to step N" buttons
+    $( document ).on( 'click', '.jw-goto-btn', function () {
+        goToStep( parseInt( $( this ).data( 'goto' ), 10 ) || 1 );
+    } );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STEP 2 — Load Juda categories (fills both the mapping table AND default dropdown)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    $( '#je-load-cats' ).on( 'click', function () {
+        var $btn    = $( this );
+        var $status = $( '#je-cats-status' );
+        $btn.prop( 'disabled', true );
+        $status.text( 'Loading…' ).css( 'color', '#888' );
+
+        $.post( cfg.ajax_url, {
+            action: 'juda_fetch_categories',
+            nonce:  cfg.nonce,
+        } )
+        .done( function ( res ) {
+            $btn.prop( 'disabled', false );
+            if ( ! res.success ) {
+                $status.text( 'Failed: ' + res.data ).css( 'color', '#d63638' );
+                return;
+            }
+
+            var judaCats = res.data; // [{ id, name, slug }]
+
+            // ── Populate the default-category dropdown ──────────────────────
+            var $defaultSel  = $( '#je-default-cat-select' );
+            var savedDefault = $( '#je-saved-default-cat' ).val();
+
+            $defaultSel.find( 'option:not(:first)' ).remove();
+            judaCats.forEach( function ( cat ) {
+                var $opt = $( '<option>' ).val( cat.id ).text( cat.name );
+                if ( cat.id === savedDefault ) {
+                    $opt.prop( 'selected', true );
+                }
+                $defaultSel.append( $opt );
+            } );
+            $( '#je-default-cat-wrap' ).show();
+
+            // ── Populate per-category selects in the mapping table ──────────
+            $( '.je-juda-cat-select' ).each( function () {
+                var $sel    = $( this );
+                var savedId = $sel.siblings( '.je-saved-juda-id' ).val();
+
+                $sel.empty().append(
+                    $( '<option>' ).val( '' ).text( '— select Juda category —' )
+                );
+                judaCats.forEach( function ( cat ) {
+                    var $opt = $( '<option>' ).val( cat.id ).text( cat.name );
+                    if ( cat.id === savedId ) {
+                        $opt.prop( 'selected', true );
+                    }
+                    $sel.append( $opt );
+                } );
+                $sel.prop( 'disabled', false );
+            } );
+
+            $( '#je-category-map-wrap' ).show();
+            $( '#je-save-inline-wrap' ).show();
+            $status
+                .text( judaCats.length + ' Juda categories loaded.' )
+                .css( 'color', '#0a7227' );
+        } )
+        .fail( function () {
+            $btn.prop( 'disabled', false );
+            $status.text( 'Failed to load categories.' ).css( 'color', '#d63638' );
+        } );
+    } );
+
+    // ── Save mapping (inline button, no step advance) ───────────────────────
+
+    $( '#je-save-cat-map' ).on( 'click', function () {
+        saveCategoryMap( $( '#je-save-map-status' ), null );
+    } );
+
+    // ── Save & Continue (saves then advances to step 3) ─────────────────────
+
+    $( '#je-continue-btn' ).on( 'click', function () {
+        var $btn = $( this );
+        $btn.prop( 'disabled', true );
+
+        saveCategoryMap( $( '#je-save-map-status' ), function ( ok ) {
+            $btn.prop( 'disabled', false );
+            goToStep( 4 ); // always advance — save is best-effort
+        } );
+    } );
+
+    /**
+     * Build the map, send to server, call callback( ok: bool ) when done.
+     * If nothing is loaded yet, skips the AJAX call and calls callback(true).
+     */
+    function saveCategoryMap( $status, callback ) {
+        var map    = {};
+        var hasCat = false;
+
+        $( '.je-juda-cat-select' ).each( function () {
+            var wpId   = $( this ).data( 'wp-term-id' );
+            var judaId = $( this ).val();
+            if ( judaId ) {
+                map[ wpId ] = judaId;
+                hasCat       = true;
+            }
+        } );
+
+        var defaultCatId = $( '#je-default-cat-select' ).val() || '';
+
+        if ( ! hasCat && ! defaultCatId ) {
+            // Nothing to save — skip AJAX
+            if ( callback ) { callback( true ); }
+            return;
+        }
+
+        $status.text( cfg.i18n.saving_map ).css( 'color', '#888' );
+
+        $.post( cfg.ajax_url, {
+            action:              'juda_save_category_map',
+            nonce:               cfg.nonce,
+            category_map:        JSON.stringify( map ),
+            default_category_id: defaultCatId,
+        } )
+        .done( function ( res ) {
+            if ( res.success ) {
+                $status.text( cfg.i18n.map_saved ).css( 'color', '#0a7227' );
+            } else {
+                $status.text( 'Error: ' + res.data ).css( 'color', '#d63638' );
+            }
+            if ( callback ) { callback( !! res.success ); }
+        } )
+        .fail( function () {
+            $status.text( 'Save failed.' ).css( 'color', '#d63638' );
+            if ( callback ) { callback( false ); }
+        } );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EXPORT PAGE — filter tabs
+    // ═══════════════════════════════════════════════════════════════════════════
 
     var activeFilter = 'all';
 
@@ -29,7 +210,6 @@
                 }
             } );
         }
-        // Show empty-state row when nothing visible
         var hasVisible = $( '#je-product-table tbody tr:visible:not(#je-empty-row)' ).length > 0;
         $( '#je-empty-row' ).toggle( ! hasVisible );
     }
@@ -52,8 +232,6 @@
         applyBoth();
     } );
 
-    // ─── Search ───────────────────────────────────────────────────────────────
-
     $( '#je-search' ).on( 'input', function () {
         applySearch( $( this ).val().toLowerCase().trim() );
     } );
@@ -61,10 +239,13 @@
     // ─── Select all visible ───────────────────────────────────────────────────
 
     $( '#je-select-all' ).on( 'change', function () {
-        $( '#je-product-table tbody tr:visible:not(#je-empty-row) .je-product-checkbox' ).prop( 'checked', this.checked );
+        $( '#je-product-table tbody tr:visible:not(#je-empty-row) .je-product-checkbox' )
+            .prop( 'checked', this.checked );
     } );
 
-    // ─── Progress bar helpers ─────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EXPORT — batched export engine
+    // ═══════════════════════════════════════════════════════════════════════════
 
     function showProgress( done, total ) {
         var pct = total > 0 ? Math.round( ( done / total ) * 100 ) : 0;
@@ -74,12 +255,25 @@
         $( '#je-progress-label' ).text( done < total ? cfg.i18n.exporting : cfg.i18n.done );
     }
 
+    function buildJudaProductUrl( slug, productId ) {
+        slug = ( slug || '' ).toString().trim();
+        productId = ( productId || '' ).toString().trim();
+
+        if ( slug && productId ) {
+            return cfg.juda_url + '/products/' + encodeURIComponent( slug ) + '/' + encodeURIComponent( productId );
+        }
+
+        if ( slug ) {
+            return cfg.juda_url + '/products/' + encodeURIComponent( slug );
+        }
+
+        return '';
+    }
+
     function hideProgress() {
         $( '#je-progress-wrap' ).hide();
         $( '#je-progress-bar' ).css( 'width', '0%' );
     }
-
-    // ─── Core batched export ──────────────────────────────────────────────────
 
     function runExport( ids ) {
         if ( ids.length === 0 ) {
@@ -87,10 +281,10 @@
             return;
         }
 
-        var $exportBtn  = $( '#je-export-btn' );
-        var $allBtn     = $( '#je-export-all-unsynced' );
-        var $resultLog  = $( '#je-result-log' );
-        var $results    = $( '#je-results' );
+        var $exportBtn = $( '#je-export-btn' );
+        var $allBtn    = $( '#je-export-all-unsynced' );
+        var $resultLog = $( '#je-result-log' );
+        var $results   = $( '#je-results' );
 
         $exportBtn.prop( 'disabled', true );
         $allBtn.prop( 'disabled', true );
@@ -99,8 +293,8 @@
         hideProgress();
 
         // Split into chunks
-        var chunks     = [];
-        var idsCopy    = ids.slice();
+        var chunks  = [];
+        var idsCopy = ids.slice();
         while ( idsCopy.length ) {
             chunks.push( idsCopy.splice( 0, BATCH_SIZE ) );
         }
@@ -114,7 +308,6 @@
 
         function processNextChunk() {
             if ( chunkIdx >= chunks.length ) {
-                // All done
                 $results.show();
                 $( '#je-stat-created' ).text( stats.exported );
                 $( '#je-stat-updated' ).text( stats.updated );
@@ -122,11 +315,12 @@
                 $resultLog.append( '<p style="color:#0a7227;"><strong>' + cfg.i18n.done + '</strong></p>' );
                 $exportBtn.prop( 'disabled', false );
                 $allBtn.prop( 'disabled', false );
-                // Update "Export all unsynced" button count
+
                 var remaining = $( '#je-product-table tbody .je-row-unsynced' ).length;
                 if ( remaining > 0 ) {
                     $allBtn.text(
-                        ( cfg.i18n.export_unsynced || 'Export all unsynced (%d)' ).replace( '%d', remaining )
+                        ( cfg.i18n.export_unsynced || 'Export all unsynced (%d)' )
+                            .replace( '%d', remaining )
                     ).data( 'count', remaining );
                 } else {
                     $allBtn.hide();
@@ -162,8 +356,9 @@
                         var label = r.created
                             ? '<span class="je-badge je-badge-synced">Created &#x2713;</span>'
                             : '<span class="je-badge je-badge-synced">Updated &#x2713;</span>';
-                        var link = r.juda_slug
-                            ? ' <a href="' + cfg.juda_url + '/products/' + r.juda_slug + '" target="_blank" rel="noopener">View &nearr;</a>'
+                        var productUrl = buildJudaProductUrl( r.juda_slug, r.juda_id );
+                        var link = productUrl
+                            ? ' <a href="' + productUrl + '" target="_blank" rel="noopener">View &nearr;</a>'
                             : '';
                         $row.find( '.je-juda-status' ).html( label + link );
                         $row.removeClass( 'je-row-unsynced' ).addClass( 'je-row-synced' );
@@ -197,8 +392,6 @@
         processNextChunk();
     }
 
-    // ─── Export selected ──────────────────────────────────────────────────────
-
     $( '#je-export-btn' ).on( 'click', function () {
         var ids = [];
         $( '.je-product-checkbox:checked' ).each( function () {
@@ -206,8 +399,6 @@
         } );
         runExport( ids );
     } );
-
-    // ─── Export all unsynced ──────────────────────────────────────────────────
 
     $( '#je-export-all-unsynced' ).on( 'click', function () {
         var count = parseInt( $( this ).data( 'count' ), 10 ) || 0;
@@ -223,7 +414,9 @@
         runExport( ids );
     } );
 
-    // ─── Test connection ──────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SETTINGS PAGE — test connection
+    // ═══════════════════════════════════════════════════════════════════════════
 
     $( '#je-test-connection' ).on( 'click', function () {
         var $status = $( '#je-test-result' );
@@ -242,77 +435,6 @@
         } )
         .fail( function () {
             $status.text( cfg.i18n.test_fail + 'Request failed.' ).css( 'color', '#d63638' );
-        } );
-    } );
-
-    // ─── Load Juda categories ─────────────────────────────────────────────────
-
-    $( '#je-load-cats' ).on( 'click', function () {
-        var $status = $( '#je-cats-status' );
-        $status.text( 'Loading…' ).css( 'color', '#888' );
-
-        $.post( cfg.ajax_url, {
-            action: 'juda_fetch_categories',
-            nonce:  cfg.nonce,
-        } )
-        .done( function ( res ) {
-            if ( ! res.success ) {
-                $status.text( 'Failed: ' + res.data ).css( 'color', '#d63638' );
-                return;
-            }
-
-            var judaCats = res.data; // [{ id, name, slug }]
-
-            $( '.je-juda-cat-select' ).each( function () {
-                var $sel    = $( this );
-                var savedId = $sel.siblings( '.je-saved-juda-id' ).val();
-
-                $sel.empty().append( $( '<option>' ).val( '' ).text( '— select Juda category —' ) );
-                judaCats.forEach( function ( cat ) {
-                    var $opt = $( '<option>' ).val( cat.id ).text( cat.name );
-                    if ( cat.id === savedId ) {
-                        $opt.prop( 'selected', true );
-                    }
-                    $sel.append( $opt );
-                } );
-                $sel.prop( 'disabled', false );
-            } );
-
-            $( '#je-category-map-wrap' ).show();
-            $status.text( judaCats.length + ' categories loaded.' ).css( 'color', '#0a7227' );
-        } )
-        .fail( function () {
-            $status.text( 'Failed to load categories.' ).css( 'color', '#d63638' );
-        } );
-    } );
-
-    // ─── Save category map ────────────────────────────────────────────────────
-
-    $( '#je-save-cat-map' ).on( 'click', function () {
-        var map     = {};
-        var $status = $( '#je-save-map-status' );
-
-        $( '.je-juda-cat-select' ).each( function () {
-            var wpId   = $( this ).data( 'wp-term-id' );
-            var judaId = $( this ).val();
-            if ( judaId ) {
-                map[ wpId ] = judaId;
-            }
-        } );
-
-        $status.text( cfg.i18n.saving_map ).css( 'color', '#888' );
-
-        $.post( cfg.ajax_url, {
-            action:       'juda_save_category_map',
-            nonce:        cfg.nonce,
-            category_map: JSON.stringify( map ),
-        } )
-        .done( function ( res ) {
-            if ( res.success ) {
-                $status.text( cfg.i18n.map_saved ).css( 'color', '#0a7227' );
-            } else {
-                $status.text( 'Error: ' + res.data ).css( 'color', '#d63638' );
-            }
         } );
     } );
 

@@ -113,7 +113,11 @@ class Juda_Exporter_CLI {
                     WP_CLI::warning( sprintf( 'Failed "%s" (ID: %d): %s', $title, $post_id, $result->get_error_message() ) );
                 } else {
                     $action = ( $result['created'] ?? false ) ? 'Created' : 'Updated';
-                    WP_CLI::log( sprintf( '  %s: %s → /products/%s', $action, $title, $result['slug'] ?? '?' ) );
+                    $product_url = juda_exporter_build_product_url(
+                        (string) ( $result['slug'] ?? '' ),
+                        (string) ( $result['productId'] ?? '' )
+                    );
+                    WP_CLI::log( sprintf( '  %s: %s → %s', $action, $title, $product_url ?: '/products/?' ) );
                 }
             }
 
