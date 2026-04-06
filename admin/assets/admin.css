@@ -1,0 +1,238 @@
+/* Juda B2B Exporter — admin styles */
+
+/* ─── Status badges ─────────────────────────────────────────────────────── */
+
+.je-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.je-badge-synced {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.je-badge-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.je-badge-error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* ─── Dashboard — stats row ─────────────────────────────────────────────── */
+
+.je-stats-row {
+    display: flex;
+    gap: 16px;
+    margin: 20px 0 24px;
+    flex-wrap: wrap;
+}
+
+.je-stat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 28px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    min-width: 140px;
+    text-align: center;
+}
+
+.je-stat-num {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+    color: #1d2327;
+}
+
+.je-stat-label {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #646970;
+}
+
+.je-stat-synced-card .je-stat-num { color: #0a7227; }
+.je-stat-pending-card .je-stat-num { color: #92400e; }
+
+/* ─── Dashboard — setup checklist card ─────────────────────────────────── */
+
+.je-card {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    max-width: 680px;
+}
+
+.je-setup-card h2 {
+    margin-top: 0;
+}
+
+.je-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.je-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.je-step-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    text-align: center;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.je-step-done .je-step-icon {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.je-step-todo .je-step-icon {
+    background: #f0f0f1;
+    color: #50575e;
+}
+
+.je-step-body {
+    flex: 1;
+}
+
+.je-step-title {
+    display: block;
+    font-size: 14px;
+    line-height: 28px; /* vertically align with icon */
+}
+
+.je-step-done .je-step-title {
+    color: #646970;
+    text-decoration: line-through;
+}
+
+.je-step-desc {
+    margin: 4px 0 8px;
+    color: #646970;
+    font-size: 13px;
+}
+
+/* ─── Dashboard — quick actions ─────────────────────────────────────────── */
+
+.je-quick-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+
+.je-notice-inline {
+    max-width: 680px;
+}
+
+/* ─── Export page — controls bar ────────────────────────────────────────── */
+
+.je-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 16px 0 8px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.je-filter-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.je-filter-tab {
+    background: #f0f0f1;
+    border: 1px solid #dcdcde;
+    border-radius: 3px;
+    padding: 5px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #1d2327;
+    line-height: 1.4;
+}
+
+.je-filter-tab:hover {
+    background: #dcdcde;
+}
+
+.je-filter-tab.active {
+    background: #2271b1;
+    border-color: #2271b1;
+    color: #fff;
+}
+
+.je-search-wrap input[type="search"] {
+    width: 220px;
+}
+
+.je-select-bar {
+    margin-bottom: 8px;
+}
+
+/* ─── Export page — actions row ─────────────────────────────────────────── */
+
+.je-export-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+
+/* ─── Product table — thumbnail ─────────────────────────────────────────── */
+
+.je-product-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.je-thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid #dcdcde;
+    flex-shrink: 0;
+}
+
+.je-thumb-placeholder {
+    display: block;
+    width: 40px;
+    height: 40px;
+    background: #f0f0f1;
+    border-radius: 3px;
+    border: 1px solid #dcdcde;
+    flex-shrink: 0;
+}
+
+.je-product-id {
+    color: #888;
+    font-size: 12px;
+}
+
+#je-product-table td,
+#je-product-table th {
+    vertical-align: middle;
+}
