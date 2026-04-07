@@ -269,6 +269,15 @@
     text-align: center;
 }
 
+.jw-finish-body {
+    text-align: left;
+}
+
+.jw-finish-intro {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
 .jw-done-icon {
     font-size: 56px;
     line-height: 1;
@@ -347,6 +356,20 @@
     margin: 16px 0 8px;
     flex-wrap: wrap;
     gap: 12px;
+}
+
+.je-export-root--embedded .je-controls {
+    margin-top: 0;
+}
+
+.je-redirect-note {
+    margin: 0 0 16px;
+    color: #646970;
+    font-size: 13px;
+}
+
+.je-table-wrap {
+    overflow-x: auto;
 }
 
 .je-filter-tabs {

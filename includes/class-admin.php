@@ -41,11 +41,16 @@ class Juda_Exporter_Admin {
 
         // Always redirect back to the wizard dashboard (not settings)
         $callback = admin_url( 'admin.php?page=juda-exporter' );
-
-        return add_query_arg( [
-            'redirect_uri' => rawurlencode( $callback ),
+        $authorize_url = add_query_arg( [
+            'redirect_uri' => $callback,
             'state'        => $state,
         ], 'https://www.judab2b.com/api/plugin/authorize' );
+
+        // Route users through Juda's production login page first so sign-in
+        // returns to the plugin authorize endpoint with the same callback/state.
+        return add_query_arg( [
+            'callbackUrl' => $authorize_url,
+        ], 'https://www.judab2b.com/auth/login' );
     }
 
     public function handle_oauth_callback(): void {
@@ -220,7 +225,9 @@ class Juda_Exporter_Admin {
             'i18n'     => [
                 'exporting'       => __( 'Exporting…',             'juda-b2b-exporter' ),
                 'done'            => __( 'Export complete!',        'juda-b2b-exporter' ),
+                'redirecting'     => __( 'Export complete! Redirecting to the dashboard...', 'juda-b2b-exporter' ),
                 'error'           => __( 'Export failed.',          'juda-b2b-exporter' ),
+                'select_products' => __( 'Please select at least one product.', 'juda-b2b-exporter' ),
                 'test_ok'         => __( 'Connection successful.',  'juda-b2b-exporter' ),
                 'test_fail'       => __( 'Connection failed: ',     'juda-b2b-exporter' ),
                 'saving_map'      => __( 'Saving…',                 'juda-b2b-exporter' ),
@@ -229,6 +236,8 @@ class Juda_Exporter_Admin {
                 'confirm_all'     => __( '%d products will be exported to Juda. Continue?', 'juda-b2b-exporter' ),
                 /* translators: %d = number of unsynced products remaining */
                 'export_unsynced' => __( 'Export all unsynced (%d)', 'juda-b2b-exporter' ),
+                /* translators: %d = number of unsynced products remaining */
+                'finish_unsynced' => __( 'Finish setup & export all unsynced (%d)', 'juda-b2b-exporter' ),
             ],
         ] );
     }

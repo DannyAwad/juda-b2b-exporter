@@ -14,7 +14,7 @@
         1: 'Welcome',
         2: 'Connect your account',
         3: 'Map categories',
-        4: 'All done!',
+        4: 'Finish setup',
     };
 
     function goToStep( n ) {
@@ -275,9 +275,33 @@
         $( '#je-progress-bar' ).css( 'width', '0%' );
     }
 
+    function getExportRoot() {
+        return $( '#je-export-root' );
+    }
+
+    function getAllUnsyncedLabel( $button, remaining ) {
+        var template = (
+            $button.data( 'label-template' ) ||
+            cfg.i18n.finish_unsynced ||
+            cfg.i18n.export_unsynced ||
+            'Export all unsynced (%d)'
+        ).toString();
+
+        return template.replace( '%d', remaining );
+    }
+
+    function getExportRedirectUrl() {
+        return ( getExportRoot().data( 'redirect-url' ) || '' ).toString();
+    }
+
+    function getExportRedirectDelay() {
+        var delay = parseInt( getExportRoot().data( 'redirect-delay' ), 10 ) || 1800;
+        return delay > 0 ? delay : 1800;
+    }
+
     function runExport( ids ) {
         if ( ids.length === 0 ) {
-            alert( 'Please select at least one product.' );
+            alert( cfg.i18n.select_products || 'Please select at least one product.' );
             return;
         }
 
@@ -313,18 +337,29 @@
                 $( '#je-stat-updated' ).text( stats.updated );
                 $( '#je-stat-errors'  ).text( stats.errors );
                 $resultLog.append( '<p style="color:#0a7227;"><strong>' + cfg.i18n.done + '</strong></p>' );
-                $exportBtn.prop( 'disabled', false );
-                $allBtn.prop( 'disabled', false );
 
                 var remaining = $( '#je-product-table tbody .je-row-unsynced' ).length;
                 if ( remaining > 0 ) {
-                    $allBtn.text(
-                        ( cfg.i18n.export_unsynced || 'Export all unsynced (%d)' )
-                            .replace( '%d', remaining )
-                    ).data( 'count', remaining );
+                    $allBtn.text( getAllUnsyncedLabel( $allBtn, remaining ) ).data( 'count', remaining );
                 } else {
                     $allBtn.hide();
                 }
+
+                if ( getExportRedirectUrl() && stats.errors === 0 ) {
+                    $resultLog.append(
+                        '<p style="color:#2271b1;"><strong>' +
+                        ( cfg.i18n.redirecting || 'Export complete! Redirecting to the dashboard...' ) +
+                        '</strong></p>'
+                    );
+
+                    window.setTimeout( function () {
+                        window.location.href = getExportRedirectUrl();
+                    }, getExportRedirectDelay() );
+                    return;
+                }
+
+                $exportBtn.prop( 'disabled', false );
+                $allBtn.prop( 'disabled', false );
                 return;
             }
 

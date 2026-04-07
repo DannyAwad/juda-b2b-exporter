@@ -27,7 +27,7 @@ $juda_step_titles = [
     1 => __( 'Welcome', 'juda-b2b-exporter' ),
     2 => __( 'Connect your account', 'juda-b2b-exporter' ),
     3 => __( 'Map categories', 'juda-b2b-exporter' ),
-    4 => __( 'All done!', 'juda-b2b-exporter' ),
+    4 => __( 'Finish setup', 'juda-b2b-exporter' ),
 ];
 $juda_progress_pct = (int) round( ( $juda_initial_step / 4 ) * 100 );
 
@@ -300,49 +300,41 @@ $juda_saved_map = json_decode( get_option( 'juda_exporter_category_map', '{}' ),
          STEP 4 — Done
     ═════════════════════════════════════════════════════════════════════════ -->
     <div class="jw-panel<?php echo 4 === $juda_initial_step ? ' is-active' : ''; ?>" data-step="4">
-        <div class="jw-panel-body jw-done-body">
+        <div class="jw-panel-body jw-finish-body">
 
-            <div class="jw-done-icon" aria-hidden="true">&#x1F389;</div>
+            <div class="jw-finish-intro">
+                <div class="jw-done-icon" aria-hidden="true">&#x1F389;</div>
 
-            <h2 class="jw-heading">
-                <?php esc_html_e( 'You are ready to export!', 'juda-b2b-exporter' ); ?>
-            </h2>
-            <p class="jw-lead">
-                <?php esc_html_e( 'Your account is connected and your categories are mapped. Go to the Export page to choose which products to list on Juda.', 'juda-b2b-exporter' ); ?>
-            </p>
+                <h2 class="jw-heading">
+                    <?php esc_html_e( 'Finish setup by exporting your products', 'juda-b2b-exporter' ); ?>
+                </h2>
+                <p class="jw-lead">
+                    <?php esc_html_e( 'Your account is connected and your categories are mapped. Export the products you want now, then the wizard will send you back to the WordPress dashboard.', 'juda-b2b-exporter' ); ?>
+                </p>
 
-            <!-- Stats -->
-            <div class="jw-stats-row">
-                <div class="jw-stat">
-                    <span class="jw-stat-num"><?php echo esc_html( $juda_total ); ?></span>
-                    <span class="jw-stat-lbl"><?php esc_html_e( 'Total products', 'juda-b2b-exporter' ); ?></span>
-                </div>
-                <div class="jw-stat jw-stat--synced">
-                    <span class="jw-stat-num"><?php echo esc_html( $juda_synced ); ?></span>
-                    <span class="jw-stat-lbl"><?php esc_html_e( 'Synced to Juda', 'juda-b2b-exporter' ); ?></span>
-                </div>
-                <div class="jw-stat jw-stat--pending">
-                    <span class="jw-stat-num"><?php echo esc_html( $juda_pending ); ?></span>
-                    <span class="jw-stat-lbl"><?php esc_html_e( 'Not yet exported', 'juda-b2b-exporter' ); ?></span>
+                <div class="jw-stats-row">
+                    <div class="jw-stat">
+                        <span class="jw-stat-num"><?php echo esc_html( $juda_total ); ?></span>
+                        <span class="jw-stat-lbl"><?php esc_html_e( 'Total products', 'juda-b2b-exporter' ); ?></span>
+                    </div>
+                    <div class="jw-stat jw-stat--synced">
+                        <span class="jw-stat-num"><?php echo esc_html( $juda_synced ); ?></span>
+                        <span class="jw-stat-lbl"><?php esc_html_e( 'Synced to Juda', 'juda-b2b-exporter' ); ?></span>
+                    </div>
+                    <div class="jw-stat jw-stat--pending">
+                        <span class="jw-stat-num"><?php echo esc_html( $juda_pending ); ?></span>
+                        <span class="jw-stat-lbl"><?php esc_html_e( 'Not yet exported', 'juda-b2b-exporter' ); ?></span>
+                    </div>
                 </div>
             </div>
 
-            <div class="jw-done-actions">
-                <a href="<?php echo esc_url( admin_url( 'admin.php?page=juda-exporter-export' ) ); ?>"
-                   class="button button-primary button-large">
-                    <?php esc_html_e( 'Export Products', 'juda-b2b-exporter' ); ?> &rarr;
-                </a>
-                <?php if ( $juda_pending > 0 ) : ?>
-                <a href="<?php echo esc_url( admin_url( 'admin.php?page=juda-exporter-export&filter=unsynced' ) ); ?>"
-                   class="button button-large">
-                    <?php echo esc_html( sprintf(
-                        /* translators: %d = unsynced product count */
-                        __( 'View %d unsynced', 'juda-b2b-exporter' ),
-                        $juda_pending
-                    ) ); ?>
-                </a>
-                <?php endif; ?>
-            </div>
+            <?php
+            $juda_export_embedded       = true;
+            $juda_export_default_filter = 'unsynced';
+            $juda_export_redirect_url   = admin_url();
+            $juda_export_redirect_delay = 1800;
+            require JUDA_EXPORTER_DIR . 'admin/views/partials/export-ui.php';
+            ?>
 
         </div><!-- .jw-panel-body -->
 
@@ -350,8 +342,8 @@ $juda_saved_map = json_decode( get_option( 'juda_exporter_category_map', '{}' ),
             <button type="button" class="button jw-goto-btn" data-goto="3">
                 &larr; <?php esc_html_e( 'Edit categories', 'juda-b2b-exporter' ); ?>
             </button>
-            <a href="<?php echo esc_url( admin_url( 'admin.php?page=juda-exporter-settings' ) ); ?>" class="button">
-                <?php esc_html_e( 'Settings', 'juda-b2b-exporter' ); ?>
+            <a href="<?php echo esc_url( admin_url() ); ?>" class="button">
+                <?php esc_html_e( 'Dashboard', 'juda-b2b-exporter' ); ?>
             </a>
         </div>
     </div><!-- step 4 -->
