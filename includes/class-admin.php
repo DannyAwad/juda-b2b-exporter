@@ -46,11 +46,11 @@ class Juda_Exporter_Admin {
             'state'        => $state,
         ], 'https://www.judab2b.com/api/plugin/authorize' );
 
-        // Route users through Juda's production login page first so sign-in
-        // returns to the plugin authorize endpoint with the same callback/state.
-        return add_query_arg( [
-            'callbackUrl' => $authorize_url,
-        ], 'https://www.judab2b.com/auth/login' );
+        // Link directly to the authorize endpoint — it handles unauthenticated
+        // users itself by redirecting to /auth/login with callbackUrl set back
+        // to itself. Routing through /auth/login first caused already-logged-in
+        // users to be sent to the Juda dashboard instead of back to the plugin.
+        return $authorize_url;
     }
 
     public function handle_oauth_callback(): void {
