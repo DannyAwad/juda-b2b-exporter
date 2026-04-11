@@ -44,6 +44,7 @@ class Juda_Exporter_Admin {
         $authorize_url = add_query_arg( [
             'redirect_uri' => $callback,
             'state'        => $state,
+            'switch'       => '1',
         ], 'https://www.judab2b.com/api/plugin/authorize' );
 
         // Link directly to the authorize endpoint — it handles unauthenticated
