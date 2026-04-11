@@ -238,6 +238,12 @@ class Juda_Exporter_Admin {
                 'export_unsynced' => __( 'Export all unsynced (%d)', 'juda-b2b-exporter' ),
                 /* translators: %d = number of unsynced products remaining */
                 'finish_unsynced' => __( 'Finish setup & export all unsynced (%d)', 'juda-b2b-exporter' ),
+                /* translators: %d = the maximum number of products allowed on this plan */
+                'limit_title'     => __( 'Product limit reached',   'juda-b2b-exporter' ),
+                /* translators: %d = product limit for the current plan */
+                'limit_body'      => __( 'Your Juda plan allows %d products.', 'juda-b2b-exporter' ),
+                'upgrade_btn'     => __( 'Upgrade plan',            'juda-b2b-exporter' ),
+                'verify_btn'      => __( 'Verify your account',     'juda-b2b-exporter' ),
             ],
         ] );
     }
@@ -273,31 +279,52 @@ class Juda_Exporter_Admin {
             wp_send_json_error( __( 'No products selected.', 'juda-b2b-exporter' ) );
         }
 
-        $exporter = new Juda_Exporter();
-        $results  = [];
+        $exporter      = new Juda_Exporter();
+        $results       = [];
+        $limit_reached = false;
+        $upgrade_url   = '';
 
         foreach ( $post_ids as $post_id ) {
             $result = $exporter->export_product( $post_id );
             if ( is_wp_error( $result ) ) {
-                $results[] = [
+                $err_code = $result->get_error_code();
+                $err_data = $result->get_error_data();
+                $row      = [
                     'post_id' => $post_id,
                     'success' => false,
                     'message' => $result->get_error_message(),
                 ];
+
+                if ( 'juda_plan_limit' === $err_code ) {
+                    $row['limit_reached'] = true;
+                    $row['plan_limit']    = $err_data['planLimit']    ?? null;
+                    $row['current_count'] = $err_data['currentCount'] ?? null;
+                    $row['tier']          = $err_data['tier']         ?? '';
+                    $row['upgrade_url']   = $err_data['upgradeUrl']   ?? '';
+                    $row['verify_url']    = $err_data['verifyUrl']    ?? '';
+                    $results[]    = $row;
+                    $limit_reached = true;
+                    $upgrade_url   = $row['upgrade_url'];
+                    break; // No point pushing remaining products — they will all fail too.
+                }
+
+                $results[] = $row;
             } else {
                 $results[] = [
                     'post_id'   => $post_id,
                     'success'   => true,
-                    'created'   => $result['created']    ?? false,
-                    'juda_slug' => $result['slug']        ?? '',
-                    'juda_id'   => $result['productId']   ?? '',
+                    'created'   => $result['created']  ?? false,
+                    'juda_slug' => $result['slug']      ?? '',
+                    'juda_id'   => $result['productId'] ?? '',
                 ];
             }
         }
 
         wp_send_json_success( [
-            'results' => $results,
-            'stats'   => $exporter->get_stats(),
+            'results'       => $results,
+            'stats'         => $exporter->get_stats(),
+            'limit_reached' => $limit_reached,
+            'upgrade_url'   => $upgrade_url,
         ] );
     }
 

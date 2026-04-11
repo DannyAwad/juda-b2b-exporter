@@ -275,6 +275,37 @@
         $( '#je-progress-bar' ).css( 'width', '0%' );
     }
 
+    function showLimitBanner( planLimit, tier, upgradeUrl, verifyUrl ) {
+        var $banner = $( '#je-plan-limit-banner' );
+        if ( ! $banner.length ) { return; }
+
+        var title       = cfg.i18n.limit_title  || 'Product limit reached';
+        var bodyTpl     = cfg.i18n.limit_body    || 'Your Juda plan allows %d products.';
+        var upgradeLabel = cfg.i18n.upgrade_btn  || 'Upgrade plan';
+        var verifyLabel  = cfg.i18n.verify_btn   || 'Verify your account';
+
+        var body = planLimit ? bodyTpl.replace( '%d', planLimit ) : bodyTpl.replace( ' %d', '' );
+
+        var ctaHtml = '';
+        if ( tier === 'free_unverified' && verifyUrl ) {
+            // Unverified: primary CTA is verification, secondary is upgrade
+            ctaHtml += ' <a href="' + verifyUrl + '" target="_blank" rel="noopener" class="button button-primary" style="margin-left:8px;">' + verifyLabel + ' &#x2197;</a>';
+            if ( upgradeUrl ) {
+                ctaHtml += ' <a href="' + upgradeUrl + '" target="_blank" rel="noopener" class="button" style="margin-left:6px;">' + upgradeLabel + ' &#x2197;</a>';
+            }
+        } else if ( upgradeUrl ) {
+            ctaHtml = ' <a href="' + upgradeUrl + '" target="_blank" rel="noopener" class="button button-primary" style="margin-left:8px;">' + upgradeLabel + ' &#x2197;</a>';
+        }
+
+        $banner
+            .html(
+                '<div class="notice notice-warning inline" style="margin:0; padding:12px 16px;">' +
+                '<p style="margin:0;"><strong>' + title + '.</strong> ' + body + ctaHtml + '</p>' +
+                '</div>'
+            )
+            .show();
+    }
+
     function getExportRoot() {
         return $( '#je-export-root' );
     }
@@ -413,6 +444,24 @@
 
                 doneCount += chunk.length;
                 showProgress( doneCount, totalIds );
+
+                // Plan limit hit — show upgrade banner and stop processing more chunks.
+                if ( res.data.limit_reached ) {
+                    var limitResult = ( res.data.results || [] ).find( function ( r ) { return r.limit_reached; } );
+                    var planLimit   = limitResult ? limitResult.plan_limit  : null;
+                    var tier        = limitResult ? limitResult.tier        : '';
+                    var upgradeUrl  = res.data.upgrade_url || ( limitResult ? limitResult.upgrade_url : '' ) || '';
+                    var verifyUrl   = limitResult ? ( limitResult.verify_url || '' ) : '';
+                    showLimitBanner( planLimit, tier, upgradeUrl, verifyUrl );
+                    $results.show();
+                    $( '#je-stat-created' ).text( stats.exported );
+                    $( '#je-stat-updated' ).text( stats.updated );
+                    $( '#je-stat-errors'  ).text( stats.errors );
+                    $exportBtn.prop( 'disabled', false );
+                    $allBtn.prop( 'disabled', false );
+                    return; // abort remaining chunks
+                }
+
                 processNextChunk();
             } )
             .fail( function () {

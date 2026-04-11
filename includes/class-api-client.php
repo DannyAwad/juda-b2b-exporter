@@ -86,11 +86,21 @@ class Juda_API_Client {
         $body = json_decode( wp_remote_retrieve_body( $response ), true );
 
         if ( ! in_array( $code, [ 200, 201 ], true ) ) {
-            if ( is_array( $body ) && isset( $body['error'] ) ) {
-                $message = $body['error'];
-            } else {
+            $message = is_array( $body ) && isset( $body['error'] )
+                ? $body['error']
                 /* translators: %d = HTTP status code returned by the Juda API */
-                $message = sprintf( __( 'Juda API returned HTTP %d.', 'juda-b2b-exporter' ), $code );
+                : sprintf( __( 'Juda API returned HTTP %d.', 'juda-b2b-exporter' ), $code );
+
+            // Plan limit response — surface extra fields so the UI can show an upgrade CTA.
+            if ( 403 === $code && is_array( $body ) && isset( $body['planLimit'] ) ) {
+                return new WP_Error( 'juda_plan_limit', $message, [
+                    'status'       => 403,
+                    'planLimit'    => $body['planLimit']    ?? null,
+                    'currentCount' => $body['currentCount'] ?? null,
+                    'tier'         => $body['tier']         ?? '',
+                    'upgradeUrl'   => $body['upgradeUrl']   ?? '',
+                    'verifyUrl'    => $body['verifyUrl']    ?? '',
+                ] );
             }
 
             return new WP_Error( 'juda_api_error', $message, [ 'status' => $code ] );

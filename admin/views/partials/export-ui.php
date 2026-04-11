@@ -219,6 +219,8 @@ $juda_export_unsynced_template = $juda_export_embedded
 
     <?php endif; ?>
 
+    <div id="je-plan-limit-banner" style="display:none; margin-top:16px;"></div>
+
     <div id="je-results" style="display:none; margin-top:24px;">
         <h2><?php esc_html_e( 'Results', 'juda-b2b-exporter' ); ?></h2>
         <table class="widefat" style="max-width:500px;">
