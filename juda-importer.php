@@ -5,7 +5,7 @@
  * Description:       Export your WooCommerce (or custom) products to the Juda B2B marketplace. Maps product fields, uploads images, and keeps listings in sync.
  * Version:           2.1.0
  * Requires at least: 6.0
- * Requires PHP:      8.1
+ * Requires PHP:      8.0
  * Author:            Juda
  * License:           GPL-2.0-or-later
  * Text Domain:       juda-b2b-exporter

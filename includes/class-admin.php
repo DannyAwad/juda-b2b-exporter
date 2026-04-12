@@ -39,8 +39,28 @@ class Juda_Exporter_Admin {
         $state = wp_generate_uuid4();
         set_transient( 'juda_oauth_state_' . $state, 1, 10 * MINUTE_IN_SECONDS );
 
-        // Always redirect back to the wizard dashboard (not settings)
+        // Always redirect back to the wizard dashboard (not settings).
         $callback = admin_url( 'admin.php?page=juda-exporter' );
+
+        // admin_url() derives its host from the WordPress siteurl option. When
+        // WordPress runs behind a reverse proxy, inside Docker, or the siteurl
+        // is misconfigured to "localhost", the callback sent to Juda becomes
+        // http://localhost/… and Juda bounces the user back to localhost instead
+        // of the real site. Fix: if the configured host differs from the host the
+        // browser actually used (HTTP_HOST), rebuild the callback URL with the
+        // real host so the OAuth round-trip lands on the correct domain.
+        $configured_host = (string) wp_parse_url( $callback, PHP_URL_HOST );
+        $real_host       = ! empty( $_SERVER['HTTP_HOST'] )
+            ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) )
+            : '';
+
+        if ( $real_host && $real_host !== $configured_host ) {
+            $scheme   = is_ssl() ? 'https' : 'http';
+            $path     = (string) wp_parse_url( $callback, PHP_URL_PATH );
+            $query    = (string) wp_parse_url( $callback, PHP_URL_QUERY );
+            $callback = $scheme . '://' . $real_host . $path . ( $query ? '?' . $query : '' );
+        }
+
         $authorize_url = add_query_arg( [
             'redirect_uri' => $callback,
             'state'        => $state,

@@ -67,7 +67,7 @@ class Juda_API_Client {
     /**
      * Quick connectivity + auth check. Returns true on success or WP_Error.
      */
-    public function test_connection(): true|WP_Error {
+    public function test_connection(): bool|WP_Error {
         $result = $this->fetch_categories();
         if ( is_wp_error( $result ) ) {
             return $result;
