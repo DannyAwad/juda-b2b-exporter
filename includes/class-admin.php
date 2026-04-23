@@ -27,10 +27,12 @@ class Juda_Exporter_Admin {
         add_action( 'admin_init',            [ $this, 'handle_disconnect' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 
-        add_action( 'wp_ajax_juda_export_batch',       [ $this, 'ajax_export_batch' ] );
+        add_action( 'wp_ajax_juda_export_batch',         [ $this, 'ajax_export_batch' ] );
         add_action( 'wp_ajax_juda_fetch_categories',   [ $this, 'ajax_fetch_categories' ] );
         add_action( 'wp_ajax_juda_save_category_map',  [ $this, 'ajax_save_category_map' ] );
         add_action( 'wp_ajax_juda_test_connection',    [ $this, 'ajax_test_connection' ] );
+        add_action( 'wp_ajax_juda_fetch_juda_products', [ $this, 'ajax_fetch_juda_products' ] );
+        add_action( 'wp_ajax_juda_import_batch',        [ $this, 'ajax_import_batch' ] );
     }
 
     // ─── OAuth: Connect to Juda ───────────────────────────────────────────────
@@ -64,13 +66,8 @@ class Juda_Exporter_Admin {
         $authorize_url = add_query_arg( [
             'redirect_uri' => $callback,
             'state'        => $state,
-            'switch'       => '1',
         ], 'https://www.judab2b.com/api/plugin/authorize' );
 
-        // Link directly to the authorize endpoint — it handles unauthenticated
-        // users itself by redirecting to /auth/login with callbackUrl set back
-        // to itself. Routing through /auth/login first caused already-logged-in
-        // users to be sent to the Juda dashboard instead of back to the plugin.
         return $authorize_url;
     }
 
@@ -192,6 +189,15 @@ class Juda_Exporter_Admin {
 
         $this->screen_hooks[] = add_submenu_page(
             'juda-exporter',
+            __( 'Import from Juda', 'juda-b2b-exporter' ),
+            __( 'Import from Juda', 'juda-b2b-exporter' ),
+            'manage_options',
+            'juda-exporter-import',
+            [ $this, 'page_import' ]
+        );
+
+        $this->screen_hooks[] = add_submenu_page(
+            'juda-exporter',
             __( 'Settings', 'juda-b2b-exporter' ),
             __( 'Settings', 'juda-b2b-exporter' ),
             'manage_options',
@@ -265,6 +271,15 @@ class Juda_Exporter_Admin {
                 'limit_body'      => __( 'Your Juda plan allows %d products.', 'juda-b2b-exporter' ),
                 'upgrade_btn'     => __( 'Upgrade plan',            'juda-b2b-exporter' ),
                 'verify_btn'      => __( 'Verify your account',     'juda-b2b-exporter' ),
+                // Import page
+                'loading_products'  => __( 'Loading products from Juda…', 'juda-b2b-exporter' ),
+                'importing'         => __( 'Importing…',              'juda-b2b-exporter' ),
+                'import_done'       => __( 'Import complete!',         'juda-b2b-exporter' ),
+                'import_error'      => __( 'Import failed.',           'juda-b2b-exporter' ),
+                'select_to_import'  => __( 'Please select at least one product to import.', 'juda-b2b-exporter' ),
+                'cache_expired'     => __( 'Product list expired. Please reload products from Juda.', 'juda-b2b-exporter' ),
+                /* translators: %d = number of products loaded from Juda */
+                'products_loaded'   => __( '%d products loaded from Juda.', 'juda-b2b-exporter' ),
             ],
         ] );
     }
@@ -278,6 +293,10 @@ class Juda_Exporter_Admin {
 
     public function page_export(): void {
         require_once JUDA_EXPORTER_DIR . 'admin/views/export.php';
+    }
+
+    public function page_import(): void {
+        require_once JUDA_EXPORTER_DIR . 'admin/views/import.php';
     }
 
     public function page_settings(): void {
@@ -416,5 +435,136 @@ class Juda_Exporter_Admin {
         }
 
         wp_send_json_success( __( 'Connection successful.', 'juda-b2b-exporter' ) );
+    }
+
+    // ─── AJAX: Fetch Juda products (for import page) ──────────────────────────
+
+    public function ajax_fetch_juda_products(): void {
+        check_ajax_referer( 'juda_export_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( null, 403 );
+        }
+
+        $page     = max( 1, absint( $_POST['page']     ?? 1 ) );
+        $per_page = min( 100, max( 1, absint( $_POST['per_page'] ?? 50 ) ) );
+
+        $client = new Juda_API_Client();
+        $result = $client->fetch_products( $page, $per_page );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( $result->get_error_message() );
+        }
+
+        $products = $result['products'] ?? [];
+
+        // Build a juda_id → wp_post_id map for already-imported products.
+        $imported_map = [];
+        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+        $synced = get_posts( [
+            'post_type'      => 'any',
+            'post_status'    => 'any',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            'meta_key'       => '_juda_product_id',
+        ] );
+        foreach ( $synced as $wp_id ) {
+            $jid = get_post_meta( $wp_id, '_juda_product_id', true );
+            if ( $jid ) {
+                $imported_map[ $jid ] = (int) $wp_id;
+            }
+        }
+
+        foreach ( $products as &$product ) {
+            $jid                      = $product['id'] ?? '';
+            $wp_id                    = $imported_map[ $jid ] ?? null;
+            $product['is_imported']   = isset( $imported_map[ $jid ] );
+            $product['wp_post_id']    = $wp_id;
+            $product['wp_post_edit_url'] = $wp_id ? get_edit_post_link( $wp_id, 'raw' ) : null;
+        }
+        unset( $product );
+
+        // Cache products for the subsequent import batch calls (30 min TTL).
+        $cache_key = 'juda_products_cache_' . md5( (string) get_option( 'juda_exporter_business_id', '' ) );
+        set_transient( $cache_key, $products, 30 * MINUTE_IN_SECONDS );
+
+        wp_send_json_success( [
+            'products'   => $products,
+            'totalItems' => $result['totalItems'] ?? count( $products ),
+            'page'       => $result['page']       ?? $page,
+            'perPage'    => $result['perPage']     ?? $per_page,
+        ] );
+    }
+
+    // ─── AJAX: Import batch (Juda → WP) ──────────────────────────────────────
+
+    public function ajax_import_batch(): void {
+        check_ajax_referer( 'juda_export_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( null, 403 );
+        }
+
+        $juda_ids = array_map( 'sanitize_text_field', (array) ( $_POST['juda_ids'] ?? [] ) );
+        $juda_ids = array_filter( $juda_ids );
+
+        if ( empty( $juda_ids ) ) {
+            wp_send_json_error( __( 'No products selected.', 'juda-b2b-exporter' ) );
+        }
+
+        $cache_key = 'juda_products_cache_' . md5( (string) get_option( 'juda_exporter_business_id', '' ) );
+        $cached    = get_transient( $cache_key );
+
+        if ( ! is_array( $cached ) ) {
+            wp_send_json_error( __( 'Product list expired. Please reload products from Juda.', 'juda-b2b-exporter' ) );
+        }
+
+        $product_map = [];
+        foreach ( $cached as $p ) {
+            if ( isset( $p['id'] ) ) {
+                $product_map[ $p['id'] ] = $p;
+            }
+        }
+
+        // Give image sideloading enough time.
+        if ( ! ini_get( 'safe_mode' ) ) {
+            set_time_limit( 300 );
+        }
+
+        $importer = new Juda_Importer();
+        $results  = [];
+
+        foreach ( $juda_ids as $juda_id ) {
+            if ( ! isset( $product_map[ $juda_id ] ) ) {
+                $results[] = [
+                    'juda_id' => $juda_id,
+                    'success' => false,
+                    'message' => __( 'Product not found in cache.', 'juda-b2b-exporter' ),
+                ];
+                continue;
+            }
+
+            $result = $importer->import_product( $product_map[ $juda_id ] );
+
+            if ( is_wp_error( $result ) ) {
+                $results[] = [
+                    'juda_id' => $juda_id,
+                    'success' => false,
+                    'message' => $result->get_error_message(),
+                ];
+            } else {
+                $results[] = [
+                    'juda_id'  => $juda_id,
+                    'success'  => true,
+                    'created'  => $result['created'],
+                    'post_id'  => $result['post_id'],
+                    'post_url' => get_edit_post_link( $result['post_id'], 'raw' ),
+                ];
+            }
+        }
+
+        wp_send_json_success( [
+            'results' => $results,
+            'stats'   => $importer->get_stats(),
+        ] );
     }
 }

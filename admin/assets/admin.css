@@ -441,3 +441,33 @@
 #je-product-table th {
     vertical-align: middle;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   IMPORT PAGE
+════════════════════════════════════════════════════════════════════════════ */
+
+.ji-intro {
+    margin: 8px 0 16px;
+    color: #50575e;
+    font-size: 14px;
+}
+
+.ji-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.ji-status-text {
+    font-size: 13px;
+}
+
+.ji-thumb-remote {
+    object-fit: cover;
+}
+
+#ji-product-table td,
+#ji-product-table th {
+    vertical-align: middle;
+}

@@ -499,6 +499,284 @@
     } );
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // IMPORT PAGE — load Juda products and batch import into WordPress
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    var IMPORT_BATCH_SIZE = 5; // smaller because each product may sideload images
+    var jiActiveFilter    = 'all';
+    var jiAllProducts     = []; // full list after load
+
+    function jiEsc( str ) {
+        return $( '<span>' ).text( String( str || '' ) ).html();
+    }
+
+    function jiUpdateCounts() {
+        var all     = $( '#ji-product-tbody tr.ji-product-row' ).length;
+        var done    = $( '#ji-product-tbody tr.ji-row-imported' ).length;
+        var newRows = all - done;
+        $( '#ji-count-all'  ).text( all );
+        $( '#ji-count-new'  ).text( newRows );
+        $( '#ji-count-done' ).text( done );
+    }
+
+    function jiApplyFilter( filter ) {
+        var $rows = $( '#ji-product-tbody tr.ji-product-row' );
+        if ( filter === 'all' ) {
+            $rows.show();
+        } else if ( filter === 'not-imported' ) {
+            $rows.hide().filter( '.ji-row-new' ).show();
+        } else if ( filter === 'imported' ) {
+            $rows.hide().filter( '.ji-row-imported' ).show();
+        }
+    }
+
+    function jiApplySearch( q ) {
+        jiApplyFilter( jiActiveFilter );
+        if ( q ) {
+            $( '#ji-product-tbody tr.ji-product-row:visible' ).each( function () {
+                if ( ( $( this ).data( 'title' ) || '' ).indexOf( q ) === -1 ) {
+                    $( this ).hide();
+                }
+            } );
+        }
+        var hasVisible = $( '#ji-product-tbody tr.ji-product-row:visible' ).length > 0;
+        $( '#ji-empty-row' ).toggle( ! hasVisible );
+    }
+
+    function jiBuildRow( product ) {
+        var isImported = !! product.is_imported;
+        var rowClass   = isImported ? 'ji-row-imported' : 'ji-row-new';
+
+        var thumbHtml = ( product.imageUrls && product.imageUrls[0] )
+            ? '<img src="' + jiEsc( product.imageUrls[0] ) + '" alt="" class="je-thumb ji-thumb-remote" />'
+            : '<span class="je-thumb-placeholder"></span>';
+
+        var priceHtml;
+        if ( product.priceFrom !== null && product.priceFrom !== undefined ) {
+            priceHtml = jiEsc( ( product.currency || 'USD' ) + ' ' + parseFloat( product.priceFrom ).toFixed( 2 ) );
+        } else {
+            priceHtml = 'RFQ';
+        }
+
+        var statusHtml;
+        if ( isImported ) {
+            statusHtml = '<span class="je-badge je-badge-synced">Imported &#x2713;</span>';
+            if ( product.wp_post_edit_url ) {
+                statusHtml += ' <a href="' + jiEsc( product.wp_post_edit_url ) + '" target="_blank" rel="noopener">Edit &nearr;</a>';
+            }
+        } else {
+            statusHtml = '<span class="je-badge je-badge-pending">Not imported</span>';
+        }
+
+        var catName = ( product.category && product.category.name ) ? product.category.name : '—';
+
+        return '<tr id="ji-row-' + jiEsc( product.id ) + '"'
+            + ' class="ji-product-row ' + rowClass + '"'
+            + ' data-title="' + jiEsc( ( product.name || '' ).toLowerCase() ) + '">'
+            + '<td><input type="checkbox" class="ji-product-checkbox" value="' + jiEsc( product.id ) + '" /></td>'
+            + '<td><div class="je-product-cell">' + thumbHtml + '<div><strong>' + jiEsc( product.name ) + '</strong></div></div></td>'
+            + '<td>' + jiEsc( catName ) + '</td>'
+            + '<td>' + priceHtml + '</td>'
+            + '<td class="ji-wp-status">' + statusHtml + '</td>'
+            + '</tr>';
+    }
+
+    function jiRenderProducts( products ) {
+        var $tbody = $( '#ji-product-tbody' );
+        // Remove previous product rows but keep the empty-row sentinel
+        $tbody.find( 'tr.ji-product-row' ).remove();
+
+        var html = '';
+        products.forEach( function ( p ) {
+            html += jiBuildRow( p );
+        } );
+        $( '#ji-empty-row' ).before( html );
+
+        jiUpdateCounts();
+        jiApplyFilter( jiActiveFilter );
+    }
+
+    function jiShowProgress( done, total ) {
+        var pct = total > 0 ? Math.round( ( done / total ) * 100 ) : 0;
+        $( '#ji-progress-wrap' ).show();
+        $( '#ji-progress-bar' ).css( 'width', pct + '%' );
+        $( '#ji-progress-fraction' ).text( done + ' / ' + total );
+        $( '#ji-progress-label' ).text( done < total
+            ? ( cfg.i18n.importing    || 'Importing…' )
+            : ( cfg.i18n.import_done || 'Import complete!' )
+        );
+    }
+
+    // ── Load button ───────────────────────────────────────────────────────────
+
+    $( '#ji-load-btn' ).on( 'click', function () {
+        var $btn    = $( this );
+        var $status = $( '#ji-load-status' );
+
+        $btn.prop( 'disabled', true );
+        $status.text( cfg.i18n.loading_products || 'Loading products from Juda…' ).css( 'color', '#888' );
+        $( '#ji-product-area' ).hide();
+        $( '#ji-results' ).hide();
+
+        $.post( cfg.ajax_url, {
+            action:   'juda_fetch_juda_products',
+            nonce:    cfg.nonce,
+            per_page: 100,
+        } )
+        .done( function ( res ) {
+            $btn.prop( 'disabled', false );
+            if ( ! res.success ) {
+                $status.text( 'Failed: ' + res.data ).css( 'color', '#d63638' );
+                return;
+            }
+
+            jiAllProducts = res.data.products || [];
+
+            jiRenderProducts( jiAllProducts );
+
+            var loaded    = jiAllProducts.length;
+            var total     = res.data.totalItems || loaded;
+            var msgTpl    = cfg.i18n.products_loaded || '%d products loaded from Juda.';
+            var msg       = msgTpl.replace( '%d', loaded );
+            if ( total > loaded ) {
+                msg += ' ' + ( total - loaded ) + ' more available — scroll down to load more.';
+            }
+            $status.text( msg ).css( 'color', '#0a7227' );
+
+            $( '#ji-product-area' ).show();
+        } )
+        .fail( function () {
+            $btn.prop( 'disabled', false );
+            $status.text( 'Failed to load products.' ).css( 'color', '#d63638' );
+        } );
+    } );
+
+    // ── Filter tabs ───────────────────────────────────────────────────────────
+
+    $( document ).on( 'click', '[data-ji-filter]', function () {
+        $( '[data-ji-filter]' ).removeClass( 'active' );
+        $( this ).addClass( 'active' );
+        jiActiveFilter = $( this ).data( 'ji-filter' ) || 'all';
+        jiApplySearch( ( $( '#ji-search' ).val() || '' ).toLowerCase().trim() );
+    } );
+
+    $( '#ji-search' ).on( 'input', function () {
+        jiApplySearch( ( $( this ).val() || '' ).toLowerCase().trim() );
+    } );
+
+    // ── Select all visible ────────────────────────────────────────────────────
+
+    $( '#ji-select-all' ).on( 'change', function () {
+        $( '#ji-product-tbody tr.ji-product-row:visible .ji-product-checkbox' )
+            .prop( 'checked', this.checked );
+    } );
+
+    // ── Import button ─────────────────────────────────────────────────────────
+
+    $( '#ji-import-btn' ).on( 'click', function () {
+        var ids = [];
+        $( '.ji-product-checkbox:checked' ).each( function () {
+            ids.push( $( this ).val() );
+        } );
+
+        if ( ids.length === 0 ) {
+            alert( cfg.i18n.select_to_import || 'Please select at least one product to import.' );
+            return;
+        }
+
+        var $btn = $( this );
+        $btn.prop( 'disabled', true );
+        $( '#ji-results' ).hide();
+        $( '#ji-result-log' ).empty();
+
+        var chunks   = [];
+        var idsCopy  = ids.slice();
+        while ( idsCopy.length ) {
+            chunks.push( idsCopy.splice( 0, IMPORT_BATCH_SIZE ) );
+        }
+
+        var total     = ids.length;
+        var done      = 0;
+        var stats     = { created: 0, updated: 0, errors: 0 };
+        var chunkIdx  = 0;
+
+        jiShowProgress( 0, total );
+
+        function processNext() {
+            if ( chunkIdx >= chunks.length ) {
+                $( '#ji-stat-created' ).text( stats.created );
+                $( '#ji-stat-updated' ).text( stats.updated );
+                $( '#ji-stat-errors'  ).text( stats.errors );
+                $( '#ji-results' ).show();
+                jiUpdateCounts();
+                $btn.prop( 'disabled', false );
+                return;
+            }
+
+            var chunk = chunks[ chunkIdx++ ];
+
+            $.post( cfg.ajax_url, {
+                action:   'juda_import_batch',
+                nonce:    cfg.nonce,
+                juda_ids: chunk,
+            } )
+            .done( function ( res ) {
+                if ( ! res.success ) {
+                    $( '#ji-result-log' ).append( '<p style="color:#d63638;">' + jiEsc( res.data ) + '</p>' );
+                    stats.errors += chunk.length;
+                    done += chunk.length;
+                    jiShowProgress( done, total );
+                    processNext();
+                    return;
+                }
+
+                var s = res.data.stats;
+                stats.created += s.created || 0;
+                stats.updated += s.updated || 0;
+                stats.errors  += ( s.errors ? s.errors.length : 0 );
+
+                ( res.data.results || [] ).forEach( function ( r ) {
+                    var $row = $( '#ji-row-' + r.juda_id );
+                    if ( r.success ) {
+                        var badge = r.created
+                            ? '<span class="je-badge je-badge-synced">Created &#x2713;</span>'
+                            : '<span class="je-badge je-badge-synced">Updated &#x2713;</span>';
+                        var editLink = r.post_url
+                            ? ' <a href="' + jiEsc( r.post_url ) + '" target="_blank" rel="noopener">Edit &nearr;</a>'
+                            : '';
+                        $row.find( '.ji-wp-status' ).html( badge + editLink );
+                        $row.removeClass( 'ji-row-new' ).addClass( 'ji-row-imported' );
+                    } else {
+                        $row.find( '.ji-wp-status' ).html(
+                            '<span class="je-badge je-badge-error">&#x26A0; ' + jiEsc( r.message ) + '</span>'
+                        );
+                        $( '#ji-result-log' ).append( '<p style="color:#d63638;">&#x26A0; ' + jiEsc( r.message ) + '</p>' );
+                    }
+                } );
+
+                if ( s.errors && s.errors.length ) {
+                    s.errors.forEach( function ( msg ) {
+                        $( '#ji-result-log' ).append( '<p style="color:#d63638;">&#x26A0; ' + jiEsc( msg ) + '</p>' );
+                    } );
+                }
+
+                done += chunk.length;
+                jiShowProgress( done, total );
+                processNext();
+            } )
+            .fail( function () {
+                $( '#ji-result-log' ).append( '<p style="color:#d63638;">' + ( cfg.i18n.import_error || 'Import failed.' ) + '</p>' );
+                stats.errors += chunk.length;
+                done += chunk.length;
+                jiShowProgress( done, total );
+                processNext();
+            } );
+        }
+
+        processNext();
+    } );
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // SETTINGS PAGE — test connection
     // ═══════════════════════════════════════════════════════════════════════════
 

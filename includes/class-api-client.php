@@ -65,6 +65,33 @@ class Juda_API_Client {
     }
 
     /**
+     * Fetch paginated products for the authenticated business (Juda → WP import).
+     *
+     * @return array{ products: array, totalItems: int, page: int, perPage: int }|WP_Error
+     */
+    public function fetch_products( int $page = 1, int $per_page = 50 ): array|WP_Error {
+        $url = add_query_arg(
+            [
+                'page'     => $page,
+                'per_page' => $per_page,
+            ],
+            $this->base_url . '/api/import/products'
+        );
+
+        $response = wp_remote_get(
+            $url,
+            [
+                'timeout' => $this->timeout,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->api_key,
+                ],
+            ]
+        );
+
+        return $this->parse_response( $response );
+    }
+
+    /**
      * Quick connectivity + auth check. Returns true on success or WP_Error.
      */
     public function test_connection(): bool|WP_Error {

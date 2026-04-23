@@ -46,6 +46,7 @@ if ( ! function_exists( 'juda_exporter_build_product_url' ) ) {
 // ─── Autoload ─────────────────────────────────────────────────────────────────
 require_once JUDA_EXPORTER_DIR . 'includes/class-api-client.php';
 require_once JUDA_EXPORTER_DIR . 'includes/class-exporter.php';
+require_once JUDA_EXPORTER_DIR . 'includes/class-importer.php';
 require_once JUDA_EXPORTER_DIR . 'includes/class-admin.php';
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
