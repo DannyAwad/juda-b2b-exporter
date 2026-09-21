@@ -59,9 +59,15 @@ class Juda_Importer {
 
         $this->save_meta( $post_id, $juda_product );
 
-        $wp_term_id = $this->resolve_wp_category( $juda_product['categoryId'] ?? '' );
-        if ( $wp_term_id ) {
-            wp_set_object_terms( $post_id, $wp_term_id, 'product_cat' );
+        $wp_term_ids = [];
+        foreach ( $this->get_juda_category_ids( $juda_product ) as $juda_category_id ) {
+            $wp_term_id = $this->resolve_wp_category( $juda_category_id );
+            if ( $wp_term_id ) {
+                $wp_term_ids[] = $wp_term_id;
+            }
+        }
+        if ( ! empty( $wp_term_ids ) ) {
+            wp_set_object_terms( $post_id, array_values( array_unique( $wp_term_ids ) ), 'product_cat' );
         }
 
         // Only sideload images on create to avoid duplicating attachments on re-import.
@@ -118,9 +124,30 @@ class Juda_Importer {
         return isset( $flipped[ $juda_category_id ] ) ? (int) $flipped[ $juda_category_id ] : null;
     }
 
+    /**
+     * Read all Juda categories while accepting older single-category payloads.
+     * The first category is Juda's primary category.
+     *
+     * @return string[]
+     */
+    private function get_juda_category_ids( array $juda_product ): array {
+        $category_ids = isset( $juda_product['categoryIds'] ) && is_array( $juda_product['categoryIds'] )
+            ? $juda_product['categoryIds']
+            : [];
+
+        $category_ids = array_values( array_filter( $category_ids, 'is_string' ) );
+        if ( empty( $category_ids ) && ! empty( $juda_product['categoryId'] ) ) {
+            $category_ids[] = (string) $juda_product['categoryId'];
+        }
+
+        return array_values( array_unique( array_filter( array_map( 'sanitize_text_field', $category_ids ) ) ) );
+    }
+
     private function save_meta( int $post_id, array $p ): void {
         update_post_meta( $post_id, '_juda_product_id',   sanitize_text_field( $p['id']   ?? '' ) );
         update_post_meta( $post_id, '_juda_product_slug', sanitize_text_field( $p['slug'] ?? '' ) );
+        $category_ids = $this->get_juda_category_ids( $p );
+        update_post_meta( $post_id, '_juda_primary_category_id', $category_ids[0] ?? '' );
 
         $price_from = isset( $p['priceFrom'] ) && $p['priceFrom'] !== null ? (float) $p['priceFrom'] : '';
         update_post_meta( $post_id, '_price',          $price_from );

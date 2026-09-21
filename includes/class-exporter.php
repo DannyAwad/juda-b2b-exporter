@@ -17,7 +17,7 @@
  * _regular_price / _price    → priceFrom     (pricingType = fixed)
  * post_excerpt empty?        → pricingType = rfq
  * _stock_quantity            → (ignored — Juda is B2B, no stock concept)
- * product_cat term           → mapped to Juda categoryId via category map option
+ * product_cat terms          → mapped to Juda categoryIds via category map option
  * featured image URL         → images[featureImageIndex=0]
  * product gallery image URLs → images[1…]
  * Yoast _yoast_wpseo_title   → metaTitle
@@ -126,8 +126,8 @@ class Juda_Exporter {
      */
     private function build_payload( WP_Post $post ): array|WP_Error {
         // ── Category mapping ─────────────────────────────────────────────────
-        $category_id = $this->resolve_category( $post->ID );
-        if ( ! $category_id ) {
+        $category_ids = $this->resolve_categories( $post->ID );
+        if ( empty( $category_ids ) ) {
             return new WP_Error(
                 'no_category',
                 sprintf(
@@ -178,7 +178,7 @@ class Juda_Exporter {
         // ── Payload ──────────────────────────────────────────────────────────
         // businessId is derived server-side from the API key — not needed in the body
         $payload = [
-            'categoryId'        => $category_id,
+            'categoryIds'       => $category_ids,
             'name'              => $name,
             'description'       => $description,
             'fullDescription'   => $full_description,
@@ -306,25 +306,62 @@ class Juda_Exporter {
     // ─── Category map ─────────────────────────────────────────────────────────
 
     /**
-     * Resolve the Juda categoryId for a given WP post.
-     * Uses the saved category map: WP term_id → Juda category UUID.
+     * Resolve Juda category IDs for a given WP post.
+     * The first ID is the primary category. Uses the saved category map:
+     * WP term_id → Juda category UUID.
+     *
+     * @return string[]
      */
-    private function resolve_category( int $post_id ): string {
+    private function resolve_categories( int $post_id ): array {
+        $category_ids = [];
+
+        // Preserve the primary category when this product was imported from Juda.
+        $saved_primary = sanitize_text_field(
+            (string) get_post_meta( $post_id, '_juda_primary_category_id', true )
+        );
+        if ( $saved_primary ) {
+            $category_ids[] = $saved_primary;
+        }
+
         // Check WC product_cat first, then juda_category
         foreach ( [ 'product_cat', 'juda_category', 'category' ] as $tax ) {
             $terms = get_the_terms( $post_id, $tax );
             if ( $terms && ! is_wp_error( $terms ) ) {
+                // Yoast's selected primary term takes priority when available.
+                $primary_term_id = (int) get_post_meta(
+                    $post_id,
+                    '_yoast_wpseo_primary_' . $tax,
+                    true
+                );
+                if ( $primary_term_id ) {
+                    foreach ( $terms as $term ) {
+                        if ( $primary_term_id === (int) $term->term_id ) {
+                            $mapped = $this->category_map[ (string) $term->term_id ] ?? '';
+                            if ( $mapped ) {
+                                $category_ids[] = $mapped;
+                            }
+                            break;
+                        }
+                    }
+                }
+
                 foreach ( $terms as $term ) {
                     $mapped = $this->category_map[ (string) $term->term_id ] ?? '';
                     if ( $mapped ) {
-                        return $mapped;
+                        $category_ids[] = $mapped;
                     }
                 }
             }
         }
 
-        // Fall back to the default category if configured
-        return (string) get_option( 'juda_exporter_default_category_id', '' );
+        $category_ids = array_values( array_unique( array_filter( $category_ids ) ) );
+        if ( ! empty( $category_ids ) ) {
+            return $category_ids;
+        }
+
+        // Fall back to the default category if no assigned term is mapped.
+        $default_category_id = (string) get_option( 'juda_exporter_default_category_id', '' );
+        return $default_category_id ? [ $default_category_id ] : [];
     }
 
     private function load_category_map(): array {

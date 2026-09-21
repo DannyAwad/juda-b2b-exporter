@@ -3,7 +3,7 @@
  * Plugin Name:       Juda B2B Exporter
  * Plugin URI:        https://www.judab2b.com
  * Description:       Export your WooCommerce (or custom) products to the Juda B2B marketplace. Maps product fields, uploads images, and keeps listings in sync.
- * Version:           2.1.0
+ * Version:           2.1.1
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Juda
@@ -14,7 +14,7 @@
 defined( 'ABSPATH' ) || exit;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-define( 'JUDA_EXPORTER_VERSION', '2.1.0' );
+define( 'JUDA_EXPORTER_VERSION', '2.1.1' );
 define( 'JUDA_EXPORTER_FILE',    __FILE__ );
 define( 'JUDA_EXPORTER_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'JUDA_EXPORTER_URL',     plugin_dir_url( __FILE__ ) );
