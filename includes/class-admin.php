@@ -39,7 +39,6 @@ class Juda_Exporter_Admin {
 
     public function build_connect_url(): string {
         $state = wp_generate_uuid4();
-        set_transient( 'juda_oauth_state_' . $state, 1, 10 * MINUTE_IN_SECONDS );
 
         // Always redirect back to the wizard dashboard (not settings).
         $callback = admin_url( 'admin.php?page=juda-exporter' );
@@ -63,6 +62,11 @@ class Juda_Exporter_Admin {
             $callback = $scheme . '://' . $real_host . $path . ( $query ? '?' . $query : '' );
         }
 
+        // The token endpoint verifies that this is the exact redirect URI used
+        // when the code was issued. Keep it with the state value so the
+        // callback can send the same URI during the code exchange.
+        set_transient( 'juda_oauth_state_' . $state, $callback, 10 * MINUTE_IN_SECONDS );
+
         $authorize_url = add_query_arg( [
             'redirect_uri' => $callback,
             'state'        => $state,
@@ -83,7 +87,8 @@ class Juda_Exporter_Admin {
 
         // Verify state nonce
         $transient_key = 'juda_oauth_state_' . $state;
-        if ( ! get_transient( $transient_key ) ) {
+        $redirect_uri = get_transient( $transient_key );
+        if ( ! is_string( $redirect_uri ) || '' === $redirect_uri ) {
             add_action( 'admin_notices', static function () {
                 echo '<div class="notice notice-error"><p><strong>Juda:</strong> Invalid or expired connection request. Please try again.</p></div>';
             } );
@@ -94,7 +99,10 @@ class Juda_Exporter_Admin {
         // Exchange code for API key + business ID
         $response = wp_remote_post( 'https://www.judab2b.com/api/plugin/token', [
             'headers' => [ 'Content-Type' => 'application/json' ],
-            'body'    => wp_json_encode( [ 'code' => $code ] ),
+            'body'    => wp_json_encode( [
+                'code'         => $code,
+                'redirect_uri' => $redirect_uri,
+            ] ),
             'timeout' => 15,
         ] );
 
